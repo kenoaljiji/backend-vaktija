@@ -362,6 +362,6 @@ app.get("*", (req, res) => {
   res.status(404).json({ error: "404 Endpoint not found" });
 });
 
-app.listen(port, () => {
-  console.log(`Vaktija API server running on port ${port}`);
+app.listen(() => {
+  console.log(`Vaktija API server running`);
 });
