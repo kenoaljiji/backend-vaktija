@@ -27,7 +27,7 @@ app.use(express.json());
 
 
 // Global browser instance for reuse
-let browser;
+/*let browser;
 
 const initBrowser = async () => {
   if (browser) return browser;
@@ -43,7 +43,7 @@ const initBrowser = async () => {
   });
 
   return browser;
-};
+};*/
 
 // Add a debug endpoint to check date calculations
 app.get("/debug/date", (req, res) => {
