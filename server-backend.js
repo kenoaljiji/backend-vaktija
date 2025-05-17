@@ -1,6 +1,6 @@
 const express = require("express");
 const compression = require("compression");
-const port = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8080;
 const vaktija = require("./data/vaktija.json");
 const app = express();
 const moment = require("moment");
@@ -362,6 +362,6 @@ app.get("*", (req, res) => {
   res.status(404).json({ error: "404 Endpoint not found" });
 });
 
-app.listen(port, () => {
-  console.log(`Vaktija API server running on port ${port}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
 });
