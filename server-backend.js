@@ -6,7 +6,7 @@ const app = express();
 const moment = require("moment");
 const NodeCache = require("node-cache");
 // Add a new function to scrape prayer times from vaktija.eu
-const puppeteer = require('puppeteer');
+/* const puppeteer = require('puppeteer'); */
 
 require("moment-timezone");
 require("moment-duration-format")(moment);
