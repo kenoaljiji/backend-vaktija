@@ -235,7 +235,7 @@ app.get("/vaktija/eu", async (req, res) => {
 });
 
 // Updated scrapePrayerTimes function
-const scrapePrayerTimes = async (language, city) => {
+export const scrapePrayerTimes = async (language, city) => {
   let page;
   try {
     const cacheKey = `${language}_${city}`;
@@ -419,10 +419,17 @@ app.post('/prayer-settings', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
+// Posalji notifikacije
 cron.schedule('* * * * *', async () => {
   console.log("Sending prayer notifications...");
   await sendPrayerNotifications();
+});
+
+
+// Pokreni svakog dana u 00:30 i 12:05
+cron.schedule("30 0,12 * * *", async () => {
+  console.log("⏰ Pokreće se ažuriranje namaskih vremena...");
+  await updateAllPrayerTimes();
 });
 
 // Graceful shutdown
