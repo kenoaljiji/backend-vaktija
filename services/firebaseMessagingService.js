@@ -3,15 +3,39 @@ const moment = require("moment");
 const { getAllUserPrayerSettings } = require("./firebaseService");
 
 // Helper: određuje sljedeći namaz
-function getNextPrayer(current, times) {
-  const order = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+function getNextPrayer(current, times, isBosnia = false) {
+  const order = isBosnia 
+    ? ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] 
+    : ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+  
   const nowIndex = order.indexOf(current);
+  if (nowIndex === -1) return null;
+
   for (let i = nowIndex + 1; i < order.length; i++) {
-    if (times[order[i]]) {
-      return { name: order[i], time: times[order[i]] };
+    const nextPrayerName = order[i];
+    const nextPrayerTime = isBosnia 
+      ? times.vakat[i] 
+      : times[nextPrayerName];
+    
+    if (nextPrayerTime) {
+      return { name: nextPrayerName, time: nextPrayerTime };
     }
   }
-  return { name: "fajr", time: times["fajr"] };
+  
+  // If no next prayer found, return first prayer of next day
+  return { 
+    name: "fajr", 
+    time: isBosnia ? times.vakat[0] : times.fajr 
+  };
+}
+
+// Function to get prayer time based on country
+function getPrayerTime(prayerTimes, prayerName, isBosnia = false) {
+  if (isBosnia) {
+    const vakatIndex = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"].indexOf(prayerName);
+    return vakatIndex >= 0 ? prayerTimes.vakat[vakatIndex] : null;
+  }
+  return prayerTimes[prayerName];
 }
 
 // Glavna funkcija
@@ -27,13 +51,25 @@ async function sendPrayerNotifications() {
       translations,
       token,
       language,
+      country
     } = user;
 
     if (!prayerTimes || !notifications || !token) continue;
 
-    for (const [prayerName, prayerTime] of Object.entries(prayerTimes)) {
+    const isBosnia = country === "Bosnia and Herzegovina";
+    const prayerNames = isBosnia 
+      ? ["fajr", "dhuhr", "asr", "maghrib", "isha"] // Skip sunrise for notifications
+      : ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+
+    console.log(`Processing user from ${country}`, prayerTimes);
+
+    for (const prayerName of prayerNames) {
       const userSettings = notifications[prayerName];
       if (!userSettings?.enabled) continue;
+
+      // Get prayer time based on country format
+      const prayerTime = getPrayerTime(prayerTimes, prayerName, isBosnia);
+      if (!prayerTime) continue;
 
       // Parsiraj sat i minut iz prayerTime (npr. "03:36")
       const [hour, minute] = prayerTime.split(':').map(Number);
@@ -51,7 +87,8 @@ async function sendPrayerNotifications() {
 
       // Ako je sada unutar minute kada treba poslati notifikaciju
       if (diffMinutes >= 0 && diffMinutes < 1) {
-        const nextPrayer = getNextPrayer(prayerName, prayerTimes);
+        const nextPrayer = getNextPrayer(prayerName, prayerTimes, isBosnia);
+        if (!nextPrayer) continue;
 
         const title =
           `${translations?.timeFor || "Vrijeme za"} ` +
@@ -88,6 +125,5 @@ async function sendPrayerNotifications() {
     }
   }
 }
-
 
 module.exports = { sendPrayerNotifications };

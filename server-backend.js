@@ -12,6 +12,7 @@ const { savePrayerSettingsToFirebase, getAllUserPrayerSettings } = require("./se
 const { sendPrayerNotifications } = require("./services/firebaseMessagingService");
 const { slugifyCityName } = require("./constants/locations");
 const cron = require("node-cron");
+const { VAKTIJA_LOCATIONS_BOSNIA } = require("./constants/locations");
 
 require("moment-timezone");
 require("moment-duration-format")(moment);
@@ -67,76 +68,183 @@ app.get("/debug/date", (req, res) => {
   };
   
   res.json(response);
+
 });
+
+// Helper function to get location ID from city name
+function getLocationId(cityOrId) {
+  // If it's already a number or numeric string, convert to number
+  if (!isNaN(cityOrId)) {
+    return Number(cityOrId);
+  }
+  
+  // If it's a city name, look up the ID
+  if (typeof cityOrId === 'string') {
+    // Try exact match first
+    if (VAKTIJA_LOCATIONS_BOSNIA[cityOrId] !== undefined) {
+      return VAKTIJA_LOCATIONS_BOSNIA[cityOrId];
+    }
+    
+    // Try case-insensitive match
+    const normalizedCity = cityOrId.toLowerCase();
+    const found = Object.entries(VAKTIJA_LOCATIONS_BOSNIA).find(
+      ([name]) => name.toLowerCase() === normalizedCity
+    );
+    
+    if (found) {
+      return found[1]; // Return the numeric ID
+    }
+  }
+  
+  return null; // Invalid input
+}
 
 // Helper function to calculate prayer times
 const calculatePrayerTimes = (locationId, year, month, day) => {
-  // Convert locationId to number
-  const locationIndex = Number(locationId);
-  
-  // Validate location
-  if (locationIndex < 0 || locationIndex >= vaktija.locations.length) {
-    return null;
-  }
-  
-  // Today is May 15, 2025 (based on the metadata)
-  const targetYear = year || 2025;
-  const targetMonth = month || 5;
-  const targetDay = day || 15;
-  
-  console.log(`Using date: ${targetYear}-${targetMonth}-${targetDay}`);
-  
-  // Validate date
-  if (!moment([targetYear, targetMonth - 1, targetDay]).isValid()) {
-    return null;
-  }
-  
-  // Get prayer times from vaktija.json
-  const monthIndex = targetMonth - 1;
-  const dayIndex = targetDay - 1;
-  
-  // Ensure the indices are valid
-  if (monthIndex < 0 || monthIndex >= vaktija.vaktija.months.length ||
-      dayIndex < 0 || dayIndex >= vaktija.vaktija.months[monthIndex].days.length) {
-    return null;
-  }
-  
-  // Get raw prayer times
-  const rawTimes = vaktija.vaktija.months[monthIndex].days[dayIndex].vakat;
-  
-  // Apply location-specific differences
-  const locationDiffs = vaktija.differences[locationIndex].months[monthIndex].vakat;
-  
-  // Check for daylight saving time
-  const isDST = moment([targetYear, monthIndex, dayIndex])
-    .add(3, "h")
-    .tz("Europe/Sarajevo")
-    .isDST();
-  
-  // Format prayer times
-  const formattedTimes = rawTimes.map((time, index) => {
-    const adjustedTime = isDST
-      ? time + locationDiffs[index] + 3600
-      : time + locationDiffs[index];
+  try {
+    // Convert locationId to number using our helper
+    const locationIndex = getLocationId(locationId);
     
-    // Convert seconds to hours and minutes
-    const hours = Math.floor(adjustedTime / 3600);
-    const minutes = Math.floor((adjustedTime % 3600) / 60);
+    // Log the received parameters with types
+    console.log('calculatePrayerTimes called with:', { 
+      locationId, 
+      locationIdType: typeof locationId,
+      locationIndex,
+      locationIndexType: typeof locationIndex,
+      year, 
+      month, 
+      day 
+    });
     
-    // Format as H:MM
-    return `${hours}:${minutes.toString().padStart(2, '0')}`;
-  });
-  
-  // Hardcode the correct date strings for May 15, 2025
-  const gregorianDate = "četvrtak, 15. maj 2025";
-  const hijriDate = "17. zu-l-ka'de 1446";
-  
-  return {
-    id: locationIndex,
-    lokacija: vaktija.locations[locationIndex],
-    datum: [hijriDate, gregorianDate],
-    vakat: formattedTimes
-  };
+    // Access data through vaktija.vaktija
+    const vaktijaData = vaktija.vaktija;
+    const differencesData = vaktija.differences;
+    const locationsData = vaktija.locations;
+    
+    // Log data structure info
+    console.log('vaktija data structure:', {
+      hasVaktija: !!vaktijaData,
+      hasLocations: !!locationsData,
+      locationsCount: locationsData?.length,
+      hasMonths: !!(vaktijaData?.months),
+      monthsCount: vaktijaData?.months?.length,
+      hasDifferences: !!differencesData,
+      differencesCount: differencesData?.length,
+      locationIndexValid: locationIndex >= 0 && locationIndex < (differencesData?.length || 0)
+    });
+    
+    // Validate location index is a valid number and within range
+    if (locationIndex === null || isNaN(locationIndex) || locationIndex < 0 || locationIndex >= (differencesData?.length || 0)) {
+      console.error('Invalid location index:', locationIndex, 
+                   'Input was:', locationId,
+                   'Type:', typeof locationId,
+                   'Max index:', (differencesData?.length || 0) - 1,
+                   'Locations count:', locationsData?.length,
+                   'Differences count:', differencesData?.length);
+      return null;
+    }
+    
+    // Get current date if not provided
+    const now = new Date();
+    const targetYear = year || now.getFullYear();
+    const targetMonth = (month !== undefined ? month : now.getMonth() + 1) - 1; // Convert to 0-based for JS Date
+    const targetDay = day || now.getDate();
+    
+    console.log(`Using date: ${targetYear}-${targetMonth + 1}-${targetDay} (0-based month: ${targetMonth})`);
+    
+    // Validate date
+    const dateMoment = moment([targetYear, targetMonth, targetDay]);
+    if (!dateMoment.isValid()) {
+      console.error('Invalid date:', { year: targetYear, month: targetMonth, day: targetDay });
+      return null;
+    }
+    
+    // Log available months
+    console.log('Available months in vaktija.vaktija.months:', vaktijaData?.months?.map((m, i) => ({
+      monthIndex: i,
+      monthName: moment().month(i).format('MMMM'),
+      daysCount: m?.days?.length
+    })));
+    
+    // Get prayer times from vaktija.json
+    console.log('Trying to access month index:', targetMonth);
+    const monthData = vaktijaData?.months?.[targetMonth];
+    if (!monthData) {
+      console.error('No data found for month index:', targetMonth);
+      console.error('Available month indices:', vaktijaData?.months?.map((_, i) => i).filter(i => vaktijaData?.months?.[i]));
+      return null;
+    }
+    
+    // Get day data (days are 1-based in the data)
+    const dayData = monthData?.days?.[targetDay - 1]; // Convert to 0-based index
+    if (!dayData) {
+      console.error('No data found for day:', targetDay, 'in month:', targetMonth + 1);
+      console.error('Available days in month:', monthData.days?.length || 0);
+      return null;
+    }
+    
+    const rawTimes = dayData.vakat;
+    if (!rawTimes) {
+      console.error('No vakat data found for the specified day');
+      return null;
+    }
+    
+    // Get location differences
+    const locationDiffs = differencesData?.[locationIndex];
+    if (!locationDiffs) {
+      console.error('No differences found for location index:', locationIndex);
+      return null;
+    }
+    
+    // Get month differences (0-based)
+    const monthDiff = locationDiffs?.months?.[targetMonth];
+    if (!monthDiff) {
+      console.error('No month differences found for month index:', targetMonth);
+      console.error('Available month differences:', Object.keys(locationDiffs.months || {}).map(Number).sort((a, b) => a - b));
+      return null;
+    }
+    
+    const diffs = monthDiff.vakat;
+    if (!diffs) {
+      console.error('No vakat differences found for the specified month');
+      return null;
+    }
+    
+    // Check for daylight saving time
+    const isDST = dateMoment.tz("Europe/Sarajevo").isDST();
+    
+    // Format prayer times
+    const formattedTimes = rawTimes.map((time, index) => {
+      const diff = diffs && diffs[index] !== undefined ? diffs[index] : 0;
+      const adjustedTime = isDST ? time + diff + 3600 : time + diff;
+      
+      // Convert seconds to hours and minutes
+      const hours = Math.floor(adjustedTime / 3600) % 24;
+      const minutes = Math.floor((adjustedTime % 3600) / 60);
+      
+      // Format as H:MM
+      return `${hours}:${minutes.toString().padStart(2, '0')}`;
+    });
+    
+    // Format dates
+    const gregorianDate = dateMoment.format('dddd, D. MMMM YYYY');
+    const hijriDate = dateMoment.format('D. MMMM YYYY');
+    
+    return {
+      id: locationIndex,
+      lokacija: locationsData[locationIndex],
+      datum: [hijriDate, gregorianDate],
+      vakat: formattedTimes
+    };
+  } catch (error) {
+    console.error('Error in calculatePrayerTimes:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      error: JSON.stringify(error, Object.getOwnPropertyNames(error))
+    });
+    return null;
+  }
 };
 
 app.get("/vaktija/ba/:lokacija/:godina", (req, res) => {
@@ -194,11 +302,11 @@ app.get("/vaktija/ba/:lokacija", (req, res) => {
   res.json(result);
 });
 
-app.get("/vaktija/eu", async (req, res) => {
+app.get("/api/vaktija/eu", async (req, res) => {
   if (!req.query.city) {
     return res.status(400).json({ 
       error: "City parameter is required",
-      example: "/vaktija/eu?city=augsburg"
+      example: "/api/vaktija/eu?city=augsburg"
     });
   }
 
@@ -235,7 +343,7 @@ app.get("/vaktija/eu", async (req, res) => {
 });
 
 // Updated scrapePrayerTimes function
-export const scrapePrayerTimes = async (language, city) => {
+const scrapePrayerTimes = async (language, city) => {
   let page;
   try {
     const cacheKey = `${language}_${city}`;
@@ -368,12 +476,18 @@ app.post('/prayer-settings', async (req, res) => {
     let prayerTimes;
 
     if (country === 'Bosnia and Herzegovina') {
-      const result = calculatePrayerTimes(city);
-
+      const now = new Date();
+      const result = calculatePrayerTimes(
+        city, 
+        now.getFullYear(), 
+        now.getMonth() + 1, 
+        now.getDate()
+      );
+    
       if (!result) throw new Error('Invalid city for BIH');
       prayerTimes = result;
-
-    } else {
+    }
+     else {
       const cityApi = slugifyCityName(city, country);
       const result = await scrapePrayerTimes(currentLanguage, cityApi);
 
@@ -447,3 +561,5 @@ app.get("*", (req, res) => {
 app.listen(port, () => {
   console.log(`Vaktija API server running on port ${port}`);
 });
+
+module.exports = { scrapePrayerTimes };

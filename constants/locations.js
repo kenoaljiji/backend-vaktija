@@ -1,5 +1,5 @@
 // Mapping of Bosnian cities to their vaktija.ba IDs
-export const VAKTIJA_LOCATIONS_BOSNIA = {
+const VAKTIJA_LOCATIONS_BOSNIA = {
     'Banja Luka': 1,
     'Bihać': 2,
     'Cazin': 19,
@@ -120,10 +120,10 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
   };
   
   // List of all Bosnian cities (for search functionality)
-  export const BOSNIAN_CITIES = Object.keys(VAKTIJA_LOCATIONS_BOSNIA);
+  const BOSNIAN_CITIES = Object.keys(VAKTIJA_LOCATIONS_BOSNIA);
   
   // Popular Bosnian cities grouped by region
-  export const POPULAR_BOSNIAN_CITIES = [
+  const POPULAR_BOSNIAN_CITIES = [
     // Major cities
     "Sarajevo",
     "Banja Luka",
@@ -168,7 +168,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
   
   // Example city lists for other countries
   
-  export const GERMAN_CITIES = [
+  const GERMAN_CITIES = [
     "Aachen",
     "Ahlen",
     "Augsburg",
@@ -262,7 +262,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
   ];
   
   
-  export const CROATIAN_CITIES = [
+  const CROATIAN_CITIES = [
     "Zagreb",
     "Split",
     "Rijeka",
@@ -276,7 +276,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
     "Vinkovci",
   ];
   
-  export const USA_CITIES = [
+  const USA_CITIES = [
     "New York",
     "Los Angeles",
     "Chicago",
@@ -289,7 +289,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
     "San Jose"
   ];
   
-  export const SERBIAN_CITIES = [
+  const SERBIAN_CITIES = [
     "Beograd",
     "Niš",
     "Nova Varoš",
@@ -301,7 +301,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
     "Subotica",
   ]
   
-  export const AUSTRIAN_CITIES = [
+  const AUSTRIAN_CITIES = [
     "Absam",
     "Ainring",
     "Altmunster",
@@ -470,7 +470,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
   ];
   
   
-  export const SWISS_CITIES = [
+  const SWISS_CITIES = [
     "Aarau",
     "Appenzell",
     "Basel",
@@ -491,7 +491,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
     "Zürich"
   ];
   
-  export const DUTCH_CITIES = [
+  const DUTCH_CITIES = [
     "Amsterdam",
     "Rotterdam",
     "Den Haag",
@@ -508,7 +508,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
   // Add more city lists as needed...
   
   // Available countries with their configurations
-  export const AVAILABLE_COUNTRIES = [
+  const AVAILABLE_COUNTRIES = [
     {
       name: "Bosnia and Herzegovina",
       key: "BosniaAndHerzegovina",
@@ -582,7 +582,7 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
     },
   ];
   
-  export const slugifyCityName = (city, country) => {
+  const slugifyCityName = (city, country) => {
     const lowerCountry = country.toLowerCase();
     const lowerCity = city.toLowerCase();
   
@@ -633,6 +633,21 @@ export const VAKTIJA_LOCATIONS_BOSNIA = {
     }
   
     return lowerCity;
+  };
+
+  module.exports = {
+    VAKTIJA_LOCATIONS_BOSNIA,
+    BOSNIAN_CITIES,
+    POPULAR_BOSNIAN_CITIES,
+    GERMAN_CITIES,
+    CROATIAN_CITIES,
+    USA_CITIES,
+    SERBIAN_CITIES,
+    AUSTRIAN_CITIES,
+    SWISS_CITIES,
+    DUTCH_CITIES,
+    AVAILABLE_COUNTRIES,
+    slugifyCityName
   };
    
   
